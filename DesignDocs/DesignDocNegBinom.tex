@@ -1,0 +1,139 @@
+\documentclass{article}
+\usepackage{url}
+\usepackage{amsthm,amsmath,amssymb,indentfirst,float}
+\usepackage{verbatim}
+\usepackage[sort,longnamesfirst]{natbib}
+\newcommand{\pcite}[1]{\citeauthor{#1}'s \citeyearpar{#1}}
+\newcommand{\ncite}[1]{\citeauthor{#1}, \citeyear{#1}}
+\DeclareMathOperator{\logit}{logit}
+    \DeclareMathOperator{\var}{Var}
+   %  \DeclareMathOperator{\det}{det}
+     \DeclareMathOperator{\diag}{diag}
+
+\usepackage{geometry}
+%\geometry{hmargin=1.025in,vmargin={1.25in,2.5in},nohead,footskip=0.5in} 
+%\geometry{hmargin=1.025in,vmargin={1.25in,0.75in},nohead,footskip=0.5in} 
+%\geometry{hmargin=2.5cm,vmargin={2.5cm,2.5cm},nohead,footskip=0.5in}
+
+\renewcommand{\baselinestretch}{1.25}
+
+\usepackage{amsbsy,amsmath,amsthm,amssymb,graphicx}
+
+\setlength{\baselineskip}{0.3in} \setlength{\parskip}{.05in}
+
+
+\newcommand{\cvgindist}{\overset{\text{d}}{\longrightarrow}}
+\DeclareMathOperator{\PR}{Pr} 
+\DeclareMathOperator{\cov}{Cov}
+
+
+\newcommand{\sX}{{\mathsf X}}
+\newcommand{\tQ}{\tilde Q}
+\newcommand{\cU}{{\cal U}}
+\newcommand{\cX}{{\cal X}}
+\newcommand{\tbeta}{\tilde{\beta}}
+\newcommand{\tlambda}{\tilde{\lambda}}
+\newcommand{\txi}{\tilde{\xi}}
+
+
+\title{Design Document for Negative Binomial Regression: R Package \texttt{glmm}}
+\author{Sydney Benson}
+\date{August 2019}
+
+\begin{document}
+\maketitle{}
+
+\begin{abstract}
+    This design document describes the process of creating a generalized linear mixed model with a response variable having a negative binomial distribution. 
+\end{abstract}
+
+\section{Introduction}
+    The R package \texttt{glmm} is expanding to include the ability to create a generalized linear mixed model with a negative binomial response variable. Variables having a negative binomial distribution contain observations which count the number of trials until a specified number of successes. This is similar to the Poisson distribution which counts the number of successes within a given time frame; however, the Poisson distribution requires that the mean and variance of the variable be the same. This leads to the issue of overdispersion, greater variability in a data set than would be expected in the statistical model. The negative binomial distribution, which does not require the variable's mean and variance to be the same, does not risk overdispersion making it optimal for use with count data that do not have equal mean and variance. 
+    \section{Data}
+        \subsection{NMES1988}
+            One data option to illustrate the use of these improvements is the NMES1988 data set from the R package \texttt{AER}. This is cross sectional data from the U.S. National Medical Expenditure Survey conducted in 1987 and 1988. The data is a sample of individuals age 66 and older who are covered by Medicare. The data set includes information on the number of visits made to various categories of medical offices and a breakdown of how many visits were made to each category of office. The data also includes information on each of the individuals personal characteristics, including gender and race, their economic well-being, and any additional insurance that the individual is covered by. 
+            
+        \subsection{grouseticks}
+            The second data option to illustrate the use of this improvement to the R package \texttt{glmm} is the grouseticks data set from the R package \texttt{lme4}. This is a simpler data set which observes the counts of the number of ticks on the heads of red grouse chicks sampled from various fields. The data set also contains information on the individual chicks' brood and geographical information about the fields the chicks were sampled from. 
+
+\section{The Negative Binomial Family}
+    \noindent Let $g$ be the canonical link function and $\mu$ be a vector of length $n$ such that
+    \begin{align}
+    g(\mu) = X \beta + Z u
+    \end{align}
+    The choice of the link function is related to the distribution of the data, $ f_\theta(y|u)$. If the data have a negative binomial distribution, the link is $\log(\mu)$. Following the method discussed in the online source from the University of California Berkeley, X is defined as a variable following a negative binomial distribution with number of failures $r$ and probability of success $\mu$. Then, the density function is 
+    \begin{align}
+    p(x) &= {x+r-1 \choose x} \left(1-\mu \right)^r \mu^x \\
+    &= {x+r-1 \choose x} \exp \left(r \log \left(1-\mu \right) + x \log \left(\mu \right) \right)
+    \end{align} 
+    
+    \noindent Thus, $h(x) = {x+r-1 \choose x}$, $T(x) = x$, $\eta = \log(\mu)$ and the cumulant function, $c(\eta) = -r \log(1-\mu)$ or $c(\eta) = r \log \left( \dfrac{1}{1-e^\eta} \right)$.
+
+    For simplicity of future notation, let $\eta=g(\mu)=X \beta + Z u$. Let $c(\eta)$ denote the cumulant function such that the log of the data density can be written as
+    \begin{align}
+    y' \eta - c(\eta) = \sum_i \left[ y_i \eta_i - c(\eta_i)  \right]
+    \end{align}
+    
+    The user is required to specify the family in the model-fitting function. Once the family is specified, many family-specific functions are called. They are contained in an S3 class called ``glmm.family''. The negative binomial family function outputs a list including the family name (``neg.binomial.glmm''), a function that calculates the value of the cumulant function $c(\eta)$,  a function that calculates the cumulant's first derivative $c'(\eta)$ with the derivative taken with respect to $\eta$, and  a function that calculates the cumulant's second derivative $c''(\eta)$. 
+
+    The users provide the family in the model-fitting function by either enter the character string (``neg.binomial.glmm'') or the function (\texttt{neg.binomial.glmm()}). Then, calculating $c(\eta_i), c'(\eta_i),$ and  $c''(\eta_i)$ is as simple as: 
+    \begin{verbatim}
+    neg.binomial.glmm()$cum(args)
+    neg.binomial.glmm()$cp(args)
+    neg.binomial.glmm()$cpp(args)
+    \end{verbatim}
+    
+    \noindent For the negative binomial distribution, we calculate these values (\texttt{cum}, \texttt{cp}, and \texttt{cpp}) as follows.
+    \begin{align}
+    c(\eta_i)&=r \log \left( \dfrac{1}{1-e^{\eta_i}} \right) \\
+    c'(\eta_i)&= r \dfrac{e^{\eta_i}}{1-e^{\eta_i}} \\
+    c''(\eta_i)&= r \dfrac{e^{\eta_i}}{ \left( 1- e^{\eta_i} \right) ^2}
+    \end{align}
+    
+    \noindent Then we use these pieces to create the scalar $c(\eta)$, the vector $c'(\eta)$ and the matrix $c''(\eta)$. We calculate
+    \begin{align}
+    c(\eta)= \sum_i c(\eta_i).
+    \end{align}
+    The vector $c'(\eta)$ has components $c'(\eta_i)$. The matrix $c''(\eta)$ is diagonal with diagonal elements $c''(\eta_i)$.
+    
+    Also, this family of functions contains a check to ensure the data are valid given the family type. For \texttt{neg.binomial.glmm}, the data should be nonnegative.  If the data set does not pass the check, the check returns an error message. 
+    
+    \subsection{The Likelihood}
+        If $Y_i$ are negative binomially distributed then $E[Y_i|U=u]=\mu_i$ and $Var[Y_i|U=u] = \mu + \dfrac{\mu^2}{\alpha}$. We can then give the response vector's density given the random effects as
+        \begin{align}
+        f_{\alpha,\beta}(y|u) = exp(y^T(X \beta + Z u) + \sum\limits_{i=1}^n \log \dfrac{\Gamma (y_i + \alpha) \cdot \alpha^\alpha}{\Gamma (\alpha) \cdot (exp(X \beta + Z u)+\alpha)^{y_i + \alpha}})
+        \end{align}
+
+        \noindent and the density of the random effects distribution as $f_\nu(u)$. Thus, the likelihood can be represented by 
+        \begin{align}
+        L(\theta|y) &= \log \int f_{\alpha,\beta}(y|u)f_\nu(u) du \\
+        &= \log\int \Big[exp(y^T(X \beta + Z u) + \sum\limits_{i=1}^n \log \dfrac{\Gamma (y_i + \alpha) \cdot \alpha^\alpha}{\Gamma (\alpha) \cdot (exp(X \beta + Z u)+\alpha)^{y_i + \alpha}}\Big]  f_\nu(u)du.
+        \end{align}
+        \begin{comment}
+        We then find the log-likelihood to be
+        \begin{align}
+        \log L(\theta|y) = y^T(X \beta + Z u) + \sum\limits_{i=1}^n \log \dfrac{\Gamma (y_i + \alpha) \cdot \alpha^\alpha}{\Gamma (\alpha) \cdot (exp(X \beta + Z u)+\alpha)^{y_i + \alpha}} + f_\nu(u) \\
+        + f_U(u|\theta) + constant \nonumber
+        \end{align}
+        
+        \noindent and the score vector to be
+        \begin{align}
+        S(\beta_j) &= \dfrac{\partial}{\partial\beta}[\log L(\theta|y)] \\
+        &= \sum\limit_{i=1}^n \alpha X [\dfrac{y_i-exp(X\beta + Z u)}{exp(X\beta + Z u) + \alpha}] \\
+        S(\alpha) &= \dfrac{\partial}{\partial\alpha}[\log L(\theta|y)] \\
+        &= \sum\limits_{i=1}^n \psi(y_i + \alpha) - \psi(\alpha) + \log(\alpha) + 1 - \log(exp(X\beta + Z u) + \alpha) - \dfrac{y_i + \alpha}{exp(X\beta + Z u)+\alpha}
+        \end{align}
+        \noindent where $\psi(w)=\dfrac{\partial}{\partial w}\log\Gamma(w)$.
+\end{comment}
+\section{Checks}
+    \subsection{Checking the cumulant finite differences}
+    To check that the first and second derivatives of the cumulant are calculated correctly, we use finite differences. To do this, we chose a value of $\theta=(\beta,\sigma)$, $\alpha$, and a relatively small value of $\delta$. We can check that the value and first derivative of the cumulant function are calculated correctly by making sure the following approximation holds
+    \begin{align}
+    \nabla c (\theta, \alpha)  \cdot \delta \approx c(\theta+\delta, \alpha)-c(\theta, \alpha).
+    \end{align} 
+    Then, we can check the first and second derivatives of the cumulant are calculated correctly by checking for the following approximation:
+    \begin{align}
+    \nabla^2 c (\theta, \alpha) \cdot \delta \approx \nabla c (\theta+\delta, \alpha)-\nabla c (\theta, \alpha)
+    \end{align}
+
+\end{document}
