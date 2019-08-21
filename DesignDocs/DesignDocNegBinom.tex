@@ -99,32 +99,41 @@
     Also, this family of functions contains a check to ensure the data are valid given the family type. For \texttt{neg.binomial.glmm}, the data should be nonnegative.  If the data set does not pass the check, the check returns an error message. 
     
     \subsection{The Likelihood}
-        If $Y_i$ are negative binomially distributed then $E[Y_i|U=u]=\mu_i$ and $Var[Y_i|U=u] = \mu + \dfrac{\mu^2}{\alpha}$. We can then give the response vector's density given the random effects as
+        If $Y_i$ are negative binomially distributed then $E[Y_i|U=u]=r \dfrac{\mu}{1-\mu}$ and $Var[Y_i|U=u] = r \dfrac{\mu}{(1-\mu)^2}$. We can then give the log of the data density as
         \begin{align}
-        f_{\alpha,\beta}(y|u) = exp(y^T(X \beta + Z u) + \sum\limits_{i=1}^n \log \dfrac{\Gamma (y_i + \alpha) \cdot \alpha^\alpha}{\Gamma (\alpha) \cdot (exp(X \beta + Z u)+\alpha)^{y_i + \alpha}})
-        \end{align}
-
-        \noindent and the density of the random effects distribution as $f_\nu(u)$. Thus, the likelihood can be represented by 
-        \begin{align}
-        L(\theta|y) &= \log \int f_{\alpha,\beta}(y|u)f_\nu(u) du \\
-        &= \log\int \Big[exp(y^T(X \beta + Z u) + \sum\limits_{i=1}^n \log \dfrac{\Gamma (y_i + \alpha) \cdot \alpha^\alpha}{\Gamma (\alpha) \cdot (exp(X \beta + Z u)+\alpha)^{y_i + \alpha}}\Big]  f_\nu(u)du.
-        \end{align}
-        \begin{comment}
-        We then find the log-likelihood to be
-        \begin{align}
-        \log L(\theta|y) = y^T(X \beta + Z u) + \sum\limits_{i=1}^n \log \dfrac{\Gamma (y_i + \alpha) \cdot \alpha^\alpha}{\Gamma (\alpha) \cdot (exp(X \beta + Z u)+\alpha)^{y_i + \alpha}} + f_\nu(u) \\
-        + f_U(u|\theta) + constant \nonumber
+        \log f_{\theta}(y|u) = y'(X \beta + Z u) - \sum_i r \log \left( \dfrac{1}{1-e^{\eta_i}} \right)
         \end{align}
         
-        \noindent and the score vector to be
+        \noindent Thus,
+        
         \begin{align}
-        S(\beta_j) &= \dfrac{\partial}{\partial\beta}[\log L(\theta|y)] \\
-        &= \sum\limit_{i=1}^n \alpha X [\dfrac{y_i-exp(X\beta + Z u)}{exp(X\beta + Z u) + \alpha}] \\
-        S(\alpha) &= \dfrac{\partial}{\partial\alpha}[\log L(\theta|y)] \\
+        f_{\theta}(y|u) = \exp \left[ y' (X \beta + Z u) - \sum_i r \log \left( \dfrac{1}{1-e^{\eta_i}} \right) \right]
+        \end{align}
+
+        \noindent and the density of the random effects distribution as $f_\theta(u)$. Thus, the log likelihood can be represented by 
+        \begin{align}
+        l(\theta) &= \log \int f_{\theta}(y|u)f_\theta(u) du \\
+        &= \log\int \exp \left[ y' (X \beta + Z u) - \sum_i r \log \left( \dfrac{1}{1-e^{\eta_i}} \right) \right]  f_\theta(u)du.
+        \end{align}
+        
+        \begin{comment}
+        \noindent and the score vector is
+        \begin{align}
+        S(\beta_j) &= \dfrac{\partial}{\partial\beta} \log L(\theta|y) \\
+        &= \sum\limit_{i=1}^n \alpha X [\dfrac{y_i-exp(X\beta + Z u)}{exp(X\beta + Z u) + \alpha}] 
+        \end{align}
+        \begin{align}
+        S(\alpha) &= \dfrac{\partial}{\partial\alpha} \log L(\theta|y) \\
         &= \sum\limits_{i=1}^n \psi(y_i + \alpha) - \psi(\alpha) + \log(\alpha) + 1 - \log(exp(X\beta + Z u) + \alpha) - \dfrac{y_i + \alpha}{exp(X\beta + Z u)+\alpha}
         \end{align}
         \noindent where $\psi(w)=\dfrac{\partial}{\partial w}\log\Gamma(w)$.
-\end{comment}
+        \end{comment}
+        
+        \subsection{The Score}
+        
+        \subsection{The Hessian}
+
+\begin{comment}
 \section{Checks}
     \subsection{Checking the cumulant finite differences}
     To check that the first and second derivatives of the cumulant are calculated correctly, we use finite differences. To do this, we chose a value of $\theta=(\beta,\sigma)$, $\alpha$, and a relatively small value of $\delta$. We can check that the value and first derivative of the cumulant function are calculated correctly by making sure the following approximation holds
@@ -135,5 +144,6 @@
     \begin{align}
     \nabla^2 c (\theta, \alpha) \cdot \delta \approx \nabla c (\theta+\delta, \alpha)-\nabla c (\theta, \alpha)
     \end{align}
+    \end{comment}
 
 \end{document}
